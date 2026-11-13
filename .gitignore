@@ -1,0 +1,9 @@
+*.keystore
+*.jks
+signing-secrets.txt
+pepk_out.zip
+uploadcert.pem
+pepk.jar
+build/
+.gradle/
+.DS_Store

@@ -1,0 +1,71 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'io.github.knightstour'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "io.github.knightstour"
+        minSdk 21
+        // RuStore requires targetSdk 28 or higher
+        targetSdk 34
+        versionCode 160
+        versionName "1.1.0"
+    }
+
+    // RuStore accepts only signed artifacts, and every future update must be
+    // signed with this same key — so a release build fails loudly rather than
+    // quietly producing something that can never be updated in the store.
+    signingConfigs {
+        release {
+            def ksPath = System.getenv("KEYSTORE_PATH")
+            if (ksPath) {
+                storeFile file(ksPath)
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS")
+                keyPassword System.getenv("KEY_PASSWORD")
+                // both signature schemes, so the package installs on Android 5+
+                // and verifies fast on modern devices
+                enableV1Signing true
+                enableV2Signing true
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (System.getenv("KEYSTORE_PATH")) {
+                signingConfig signingConfigs.release
+            } else {
+                // leave unsigned and make the reason obvious
+                signingConfig null
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies { }
+
+// Refuse to hand over an unsigned release artifact: uploading one to RuStore
+// is rejected, and noticing that at upload time wastes a review cycle.
+tasks.configureEach { t ->
+    if (t.name == 'assembleRelease' || t.name == 'bundleRelease') {
+        t.doFirst {
+            if (!System.getenv("KEYSTORE_PATH")) {
+                throw new GradleException(
+                    "No signing key.\n" +
+                    "Set KEYSTORE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD.\n" +
+                    "On GitHub Actions these come from the repository secrets\n" +
+                    "KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD.\n" +
+                    "Run tools/make-keystore.sh once to create the keys;\n" +
+                    "KEY_ALIAS must be the upload key (alias: upload).")
+            }
+        }
+    }
+}
